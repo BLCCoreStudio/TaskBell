@@ -52,10 +52,10 @@ fn run(config: Config) -> ! {
 
     eprintln!("taskbell: {message}");
 
-    if elapsed_secs >= config.min_duration_secs {
-        if config.no_notify || !send_notification(&config.title, &message) {
-            ring_terminal_bell();
-        }
+    if elapsed_secs >= config.min_duration_secs
+        && (config.no_notify || !send_notification(&config.title, &message))
+    {
+        ring_terminal_bell();
     }
 
     exit_with_status(status)
