@@ -38,7 +38,11 @@ fn run(config: Config) -> ! {
     };
 
     let elapsed_secs = started.elapsed().as_secs();
-    let outcome = if status.success() { "finished" } else { "failed" };
+    let outcome = if status.success() {
+        "finished"
+    } else {
+        "failed"
+    };
     let message = format!(
         "{} {} after {}",
         config.command[0],
