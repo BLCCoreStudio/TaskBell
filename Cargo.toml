@@ -1,0 +1,13 @@
+[package]
+name = "taskbell"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+description = "Get notified when long-running terminal commands finish."
+license = "MIT"
+repository = "https://github.com/BLCCoreStudio/TaskBell"
+readme = "README.md"
+keywords = ["terminal", "notification", "cli", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
