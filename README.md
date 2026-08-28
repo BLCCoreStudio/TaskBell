@@ -25,7 +25,25 @@ TaskBell keeps the workflow deliberately simple:
 
 ## Status
 
-TaskBell is under active early development. The current source targets a minimal Linux-first v0.1.0 and is not yet published as a GitHub Release.
+**TaskBell v0.1.0 is available now as the first public release.**
+
+The prebuilt release currently targets Linux x86_64. Other platforms can build from source while portability work continues.
+
+[Download TaskBell v0.1.0](https://github.com/BLCCoreStudio/TaskBell/releases/tag/v0.1.0)
+
+## Install the Linux release
+
+Download the `TaskBell-v0.1.0-linux-x86_64.tar.gz` asset from the release page, then:
+
+```bash
+tar -xzf TaskBell-v0.1.0-linux-x86_64.tar.gz
+cd TaskBell-v0.1.0-linux-x86_64
+./taskbell --version
+```
+
+You can optionally place the binary somewhere on your `PATH`, for example `~/.local/bin`.
+
+The release page also includes a SHA-256 checksum file for verifying the downloaded archive.
 
 ## Build from source
 
