@@ -1,0 +1,118 @@
+name: Competitive benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/benchmark-competitive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  command-notify-wrapper:
+    name: TaskBell vs noti
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install benchmark tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes hyperfine time golang-go git
+
+      - name: Build TaskBell
+        run: cargo build --release --locked
+
+      - name: Build pinned noti competitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/noti-src
+          git clone -q https://github.com/TfxLabs/noti.git /tmp/noti-src
+          git -C /tmp/noti-src checkout -q aa1de9d32399e5e928c7291be120e13025f0554b
+          (cd /tmp/noti-src && go build -trimpath -o /tmp/noti ./cmd/noti)
+
+      - name: Verify shared command-wrapper behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          ./target/release/taskbell --no-notify -- sh -c 'exit 7' >/tmp/taskbell-exit.out 2>&1
+          taskbell_code=$?
+          /tmp/noti --banner=false sh -c 'exit 7' >/tmp/noti-exit.out 2>&1
+          noti_code=$?
+          set -e
+          test "$taskbell_code" -eq 7
+          test "$noti_code" -eq 7
+          printf 'Both wrappers preserved exit code 7 with desktop notifications disabled.\n'
+
+      - name: Benchmark notification-wrapper overhead
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results
+          cat > /tmp/run-taskbell-100.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          for _ in $(seq 1 100); do
+            ./target/release/taskbell --no-notify -- /bin/true >/dev/null 2>/dev/null
+          done
+          EOF
+          cat > /tmp/run-noti-100.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          for _ in $(seq 1 100); do
+            /tmp/noti --banner=false /bin/true >/dev/null 2>/dev/null
+          done
+          EOF
+          chmod +x /tmp/run-taskbell-100.sh /tmp/run-noti-100.sh
+
+          {
+            echo "workload=100 sequential /bin/true executions through the same class of completion wrapper"
+            echo "notification_mode=desktop notifications disabled for headless CI"
+            echo "competitor=TfxLabs/noti@aa1de9d32399e5e928c7291be120e13025f0554b"
+            echo "runner=ubuntu-24.04"
+            echo "kernel=$(uname -srmo)"
+            echo "cpu=$(lscpu | awk -F: '/Model name/{gsub(/^[ \t]+/,"",$2); print $2; exit}')"
+            echo "taskbell=$(./target/release/taskbell --version)"
+            echo "hyperfine=$(hyperfine --version | head -n1)"
+          } > benchmark-results/environment.txt
+
+          hyperfine --warmup 3 --runs 20 \
+            --export-json benchmark-results/wrapper-overhead.json \
+            --export-markdown benchmark-results/wrapper-overhead.md \
+            --command-name 'TaskBell x100' '/tmp/run-taskbell-100.sh' \
+            --command-name 'noti x100' '/tmp/run-noti-100.sh'
+
+          /usr/bin/time -v /tmp/run-taskbell-100.sh >/dev/null 2>benchmark-results/taskbell-time-v.txt
+          /usr/bin/time -v /tmp/run-noti-100.sh >/dev/null 2>benchmark-results/noti-time-v.txt
+          cat benchmark-results/wrapper-overhead.md
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [[ -f benchmark-results/environment.txt ]]; then
+            echo '## Environment' >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat benchmark-results/environment.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f benchmark-results/wrapper-overhead.md ]]; then
+            echo '## Aggregated headless command-wrapper overhead' >> "$GITHUB_STEP_SUMMARY"
+            cat benchmark-results/wrapper-overhead.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload raw evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: taskbell-competitive-benchmark-${{ github.sha }}
+          path: benchmark-results/
+          if-no-files-found: error
+          retention-days: 90
