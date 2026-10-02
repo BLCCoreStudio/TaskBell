@@ -137,6 +137,15 @@ mod tests {
     }
 
     #[test]
+    fn preserves_command_flags_after_separator() {
+        let parsed = parse_args(["--", "cargo", "--help"]).unwrap();
+        match parsed {
+            ParseOutcome::Run(config) => assert_eq!(config.command, ["cargo", "--help"]),
+            _ => panic!("expected run outcome"),
+        }
+    }
+
+    #[test]
     fn rejects_missing_command() {
         let err = parse_args(["--min-duration", "10"]).unwrap_err();
         assert!(err.to_string().contains("no command provided"));
